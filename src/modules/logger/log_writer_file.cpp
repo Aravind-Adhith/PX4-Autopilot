@@ -41,9 +41,11 @@
 #include <mathlib/mathlib.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/crypto.h>
-#ifdef __PX4_NUTTX
-#include <systemlib/hardfault_log.h>
-#endif /* __PX4_NUTTX */
+
+#if defined(__PX4_NUTTX)
+# include <malloc.h>
+# include <systemlib/hardfault_log.h>
+#endif // __PX4_NUTTX
 
 using namespace time_literals;
 
@@ -644,6 +646,22 @@ bool LogWriterFile::LogFileBuffer::start_log(const char *filename)
 	}
 
 	if (_buffer == nullptr) {
+#if defined(__PX4_NUTTX)
+		struct mallinfo alloc_info = mallinfo();
+
+		// reduced to largest available free chunk, but leave at least 1 kB available
+		static constexpr int one_kb = 1024;
+		const int reduced_buffer_size = (alloc_info.mxordblk - one_kb) / one_kb * one_kb;
+
+		if ((reduced_buffer_size > 0) && ((int)_buffer_size > reduced_buffer_size)) {
+			PX4_WARN("requested buffer size %dB limited to available %dB (available plus 1 kB margin)",
+				 _buffer_size, reduced_buffer_size);
+
+			_buffer_size = reduced_buffer_size;
+		}
+
+#endif // __PX4_NUTTX
+
 		_buffer = (uint8_t *) px4_cache_aligned_alloc(_buffer_size);
 
 		if (_buffer == nullptr) {
