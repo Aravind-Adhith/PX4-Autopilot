@@ -251,6 +251,17 @@ bool DeviceExternal(uint32_t device_id)
 	case device::Device::DeviceBusType_I2C:
 #if defined(CONFIG_I2C)
 		external = px4_i2c_bus_external(id.devid_s.bus);
+
+#if defined(CONFIG_ARCH_BOARD_PX4_FMU_V6C)
+		// The internal baro and mag on Pixhawk 6C are on an external
+		// bus. On rev 0, the bus is actually exposed externally, on
+		// rev 1+, it is properly internal, however, still marked as
+		// external for compatibility.
+		if (device_id == 396321 || device_id == 4028193) {
+			external = false;
+		}
+#endif // defined(CONFIG_ARCH_BOARD_PX4_FMU_V6C)
+
 #endif // CONFIG_I2C
 		break;
 
